@@ -4,6 +4,7 @@ from tkinter import ttk, messagebox
 from models.product import ProductModel
 from models.category import CategoryModel
 from ui.add_product_dialog import AddProductDialog
+from ui.edit_product_dialog import EditProductDialog
 from ui.table import Table
 
 
@@ -63,12 +64,13 @@ class ProductFrame(ttk.Frame):
 
         # ── Table ─────────────────────────────────────────────────
         self.table = Table(self, columns=[
-            {"key": "id", "label": "Id", "width": 60, "anchor": "center", "stretch": False},
-            {"key": "name", "label": "Name", "width": 250, "anchor": "w", "stretch": True},
-            {"key": "barcode", "label": "Barcode", "width": 150, "anchor": "w", "stretch": True},
-            {"key": "price", "label": "Price", "width": 120, "anchor": "e", "stretch": False},
-            {"key": "stock", "label": "Stock", "width": 80, "anchor": "center", "stretch": False},
-            {"key": "category", "label": "Category", "width": 150, "anchor": "w", "stretch": True},
+            {"key": "id", "label": "Id", "width": 50, "anchor": "center", "stretch": False},
+            {"key": "image", "label": "Image", "width": 45, "anchor": "center", "stretch": False, "type": "image", "img_size": 36},
+            {"key": "name", "label": "Name", "width": 220, "anchor": "w", "stretch": True},
+            {"key": "barcode", "label": "Barcode", "width": 130, "anchor": "w", "stretch": True},
+            {"key": "price", "label": "Price", "width": 100, "anchor": "e", "stretch": False},
+            {"key": "stock", "label": "Stock", "width": 70, "anchor": "center", "stretch": False},
+            {"key": "category", "label": "Category", "width": 130, "anchor": "w", "stretch": True},
         ], on_select=self._on_select)
         self.table.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
@@ -96,19 +98,7 @@ class ProductFrame(ttk.Frame):
         if not row:
             messagebox.showwarning("Select", "Select a product first.")
             return
-        product_id = row["id"]
-        try:
-            self.product_model.update(
-                product_id,
-                self.entries["name"].get(),
-                self.entries["barcode"].get() or None,
-                float(self.entries["price"].get()),
-                int(self.entries["stock"].get()),
-                self._get_category_id(),
-            )
-            self._load_products()
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+        EditProductDialog(self.winfo_toplevel(), self.db, row, on_save=self._load_products)
 
     def _delete(self):
         row = self.table.get_selected()
@@ -155,6 +145,7 @@ class ProductFrame(ttk.Frame):
             data = [
                 {
                     "id": p["id"],
+                    "image": p.get("image") or "",
                     "name": p["name"],
                     "barcode": p["barcode"] or "",
                     "price": f'{p["price"]:.2f}',

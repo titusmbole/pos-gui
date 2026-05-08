@@ -1,5 +1,12 @@
 import tkinter as tk
 from tkinter import ttk
+import os
+
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 
 class Table(ttk.Frame):
@@ -36,6 +43,7 @@ class Table(ttk.Frame):
         self._rows = []
         self._selected_index = None
         self._on_select = on_select
+        self._image_cache = []
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -154,6 +162,7 @@ class Table(ttk.Frame):
         for widget in self._body_frame.winfo_children():
             widget.destroy()
         self._rows = []
+        self._image_cache = []
 
         self._sync_columns()
 
@@ -163,21 +172,55 @@ class Table(ttk.Frame):
 
             for col_idx, col in enumerate(self.columns):
                 value = row_data.get(col["key"], "")
-                cell = tk.Label(
-                    self._body_frame,
-                    text=str(value),
-                    bg=bg,
-                    fg=self.ROW_FG,
-                    font=self.FONT,
-                    anchor=col.get("anchor", "w"),
-                    padx=12,
-                    pady=6,
-                )
+                col_type = col.get("type", "text")
+
+                if col_type == "image" and HAS_PIL and value:
+                    cell = tk.Label(
+                        self._body_frame,
+                        bg=bg,
+                        padx=4,
+                        pady=2,
+                    )
+                    photo = self._load_thumbnail(value, col.get("img_size", 36))
+                    if photo:
+                        cell.configure(image=photo)
+                        self._image_cache.append(photo)
+                    else:
+                        cell.configure(text="—", fg="#999", font=self.FONT)
+                else:
+                    cell = tk.Label(
+                        self._body_frame,
+                        text=str(value) if col_type != "image" else ("—" if not value else "img"),
+                        bg=bg,
+                        fg=self.ROW_FG,
+                        font=self.FONT,
+                        anchor=col.get("anchor", "w"),
+                        padx=12,
+                        pady=6,
+                    )
                 cell.grid(row=row_idx, column=col_idx, sticky="ew")
                 cell.bind("<Button-1>", lambda e, idx=row_idx: self._select_row(idx))
                 row_widgets.append(cell)
 
             self._rows.append(row_widgets)
+
+    @staticmethod
+    def _load_thumbnail(filename, size):
+        """Load an image file from uploads/ and return a PhotoImage thumbnail."""
+        if not filename or not HAS_PIL:
+            return None
+        uploads_dir = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "uploads"
+        )
+        path = os.path.join(uploads_dir, filename)
+        if not os.path.isfile(path):
+            return None
+        try:
+            img = Image.open(path)
+            img.thumbnail((size, size))
+            return ImageTk.PhotoImage(img)
+        except Exception:
+            return None
 
     def _select_row(self, index):
         """Handle row selection."""

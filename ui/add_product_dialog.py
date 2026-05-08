@@ -16,7 +16,7 @@ class AddProductDialog(tk.Toplevel):
         self.on_save_callback = on_save
 
         self.title("Add New Product")
-        self.geometry("500x580")
+        self.geometry("800x720")
         self.resizable(True, True)
         self.minsize(480, 550)
         self.grab_set()

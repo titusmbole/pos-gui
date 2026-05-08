@@ -65,7 +65,8 @@ class DashboardFrame(ttk.Frame):
 
         # ── Quick Actions ─────────────────────────────────────────
         actions_frame = ttk.LabelFrame(self, text="Quick Actions", padding=15)
-        actions_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=10)
+        actions_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
+        actions_frame.columnconfigure((0, 1, 2), weight=1)
 
         actions = [
             ("New Sale", self._goto_pos),
@@ -74,9 +75,9 @@ class DashboardFrame(ttk.Frame):
             ("Refresh Dashboard", self._load_summaries),
         ]
 
-        for text, cmd in actions:
+        for i, (text, cmd) in enumerate(actions):
             btn = ttk.Button(actions_frame, text=text, command=cmd)
-            btn.pack(fill="x", pady=5, ipady=5)
+            btn.grid(row=i // 3, column=i % 3, padx=5, pady=5, sticky="ew")
 
         # ── Recent Sales ──────────────────────────────────────────
         recent_frame = ttk.LabelFrame(self, text="Recent Sales (Today)", padding=10)

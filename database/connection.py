@@ -115,7 +115,33 @@ class Database:
                     ON DELETE RESTRICT
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(100) NOT NULL UNIQUE,
+                email VARCHAR(200) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                full_name VARCHAR(200) NOT NULL,
+                role ENUM('Admin', 'Cashier') NOT NULL DEFAULT 'Cashier',
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
         ]
         for sql in tables:
             self.execute_query(sql)
+        self._seed_admin()
         print("Database tables initialized")
+
+    def _seed_admin(self):
+        """Create default admin user if no users exist."""
+        import hashlib
+        row = self.fetch_one("SELECT COUNT(*) AS cnt FROM users")
+        if row["cnt"] == 0:
+            pw_hash = hashlib.sha256("Mbole@6223".encode()).hexdigest()
+            self.execute_query(
+                "INSERT INTO users (username, email, password_hash, full_name, role) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                ("titus.kilunda", "titus.eddys@gmail.com", pw_hash, "Titus Mbole", "Admin"),
+            )
+            print("Admin user seeded")

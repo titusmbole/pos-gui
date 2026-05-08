@@ -110,24 +110,6 @@ def cmd_start(args):
     logger = logging.getLogger("pos")
     logger.info("Starting POS application...")
 
-    # ── Show login screen first ───────────────────────────────
-    from ui.login import LoginWindow
-
-    authenticated = False
-
-    def on_login_success():
-        nonlocal authenticated
-        authenticated = True
-        logger.info("Login successful")
-
-    logger.info("Showing login screen...")
-    login = LoginWindow(on_success=on_login_success)
-    login.run()
-
-    if not authenticated:
-        logger.info("Login cancelled. Exiting.")
-        sys.exit(0)
-
     # ── Connect to database ───────────────────────────────────
     from database.connection import Database
     from config.settings import DATABASE, APP
@@ -144,21 +126,43 @@ def cmd_start(args):
     db.init_tables()
     logger.info("Tables initialized")
 
+    # ── Show login screen ─────────────────────────────────────
+    from ui.login import LoginWindow
+
+    authenticated = False
+
+    def on_login_success():
+        nonlocal authenticated
+        authenticated = True
+        logger.info("Login successful")
+
+    logger.info("Showing login screen...")
+    login = LoginWindow(db=db, on_success=on_login_success)
+    login.run()
+
+    if not authenticated:
+        logger.info("Login cancelled. Exiting.")
+        db.disconnect()
+        sys.exit(0)
+
+    # ── Build main UI ─────────────────────────────────────────
     import tkinter as tk
     from tkinter import ttk
     from config.settings import APP as app_cfg
+    from ui.dashboard_frame import DashboardFrame
     from ui.pos_frame import POSFrame
     from ui.product_frame import ProductFrame
     from ui.sales_frame import SalesFrame
 
     root = tk.Tk()
     root.title(app_cfg["title"])
-    root.geometry(f'{app_cfg["width"]}x{app_cfg["height"]}')
+    root.attributes("-zoomed", True)
     style = ttk.Style()
     style.theme_use(app_cfg["theme"])
 
     notebook = ttk.Notebook(root)
     notebook.pack(fill="both", expand=True, padx=5, pady=5)
+    notebook.add(DashboardFrame(notebook, db), text="  Dashboard  ")
     notebook.add(POSFrame(notebook, db), text="  POS  ")
     notebook.add(ProductFrame(notebook, db), text="  Products  ")
     notebook.add(SalesFrame(notebook, db), text="  Sales  ")

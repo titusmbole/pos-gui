@@ -1,2 +1,3 @@
 mysql-connector-python>=8.0
 pygubu>=0.35
+watchdog>=4.0

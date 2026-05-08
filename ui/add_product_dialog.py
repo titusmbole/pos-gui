@@ -13,13 +13,13 @@ class AddProductDialog(tk.Toplevel):
         self.db = db
         self.product_model = ProductModel(db)
         self.category_model = CategoryModel(db)
-        self.on_save = on_save  # callback after successful save
+        self.on_save_callback = on_save
 
         self.title("Add New Product")
         self.geometry("500x580")
         self.resizable(True, True)
         self.minsize(480, 550)
-        self.grab_set()  # make modal
+        self.grab_set()
         self.transient(parent)
 
         self._categories = {}
@@ -39,8 +39,9 @@ class AddProductDialog(tk.Toplevel):
         main = ttk.Frame(self, padding=20)
         main.pack(fill="both", expand=True)
 
-        title_lbl = ttk.Label(main, text="New Product", font=("Arial", 16, "bold"))
-        title_lbl.pack(pady=(0, 15))
+        ttk.Label(main, text="New Product", font=("Arial", 16, "bold")).pack(
+            pady=(0, 15)
+        )
 
         # ── Fields ────────────────────────────────────────────────
         fields_frame = ttk.Frame(main)
@@ -49,8 +50,8 @@ class AddProductDialog(tk.Toplevel):
         self.name_var = tk.StringVar()
         self.barcode_var = tk.StringVar()
         self.price_var = tk.StringVar()
-        self.stock_var = tk.StringVar(value="0")
         self.cost_var = tk.StringVar(value="0.00")
+        self.stock_var = tk.StringVar(value="0")
 
         field_defs = [
             ("Product Name *", self.name_var),
@@ -64,8 +65,9 @@ class AddProductDialog(tk.Toplevel):
             row = ttk.Frame(fields_frame)
             row.pack(fill="x", pady=4)
             ttk.Label(row, text=label_text, width=18, anchor="w").pack(side="left")
-            entry = ttk.Entry(row, textvariable=var, width=25)
-            entry.pack(side="left", fill="x", expand=True)
+            ttk.Entry(row, textvariable=var, width=25).pack(
+                side="left", fill="x", expand=True
+            )
 
         # Category dropdown
         cat_row = ttk.Frame(fields_frame)
@@ -75,8 +77,9 @@ class AddProductDialog(tk.Toplevel):
         self.cat_combo.pack(side="left", fill="x", expand=True)
 
         # ── Description ──────────────────────────────────────────
-        desc_lbl = ttk.Label(fields_frame, text="Description", anchor="w")
-        desc_lbl.pack(fill="x", pady=(8, 2))
+        ttk.Label(fields_frame, text="Description", anchor="w").pack(
+            fill="x", pady=(8, 2)
+        )
         self.desc_text = tk.Text(fields_frame, height=4, width=40, wrap="word")
         self.desc_text.pack(fill="x")
 
@@ -87,9 +90,9 @@ class AddProductDialog(tk.Toplevel):
         ttk.Button(btn_frame, text="Save Product", command=self._save).pack(
             side="left", padx=10
         )
-        ttk.Button(btn_frame, text="Save & Add Another", command=self._save_and_clear).pack(
-            side="left", padx=10
-        )
+        ttk.Button(
+            btn_frame, text="Save & Add Another", command=self._save_and_clear
+        ).pack(side="left", padx=10)
         ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(
             side="left", padx=10
         )
@@ -103,32 +106,29 @@ class AddProductDialog(tk.Toplevel):
             self._categories = {}
 
     def _validate(self):
-        name = self.name_var.get().strip()
-        if not name:
+        if not self.name_var.get().strip():
             messagebox.showwarning("Validation", "Product name is required.", parent=self)
             return False
-
         price_str = self.price_var.get().strip()
         if not price_str:
             messagebox.showwarning("Validation", "Selling price is required.", parent=self)
             return False
         try:
-            price = float(price_str)
-            if price < 0:
+            if float(price_str) < 0:
                 raise ValueError
         except ValueError:
-            messagebox.showwarning("Validation", "Price must be a valid positive number.", parent=self)
+            messagebox.showwarning(
+                "Validation", "Price must be a valid positive number.", parent=self
+            )
             return False
-
-        stock_str = self.stock_var.get().strip()
         try:
-            stock = int(stock_str)
-            if stock < 0:
+            if int(self.stock_var.get().strip()) < 0:
                 raise ValueError
         except ValueError:
-            messagebox.showwarning("Validation", "Stock must be a valid non-negative integer.", parent=self)
+            messagebox.showwarning(
+                "Validation", "Stock must be a valid non-negative integer.", parent=self
+            )
             return False
-
         return True
 
     def _save(self):
@@ -147,7 +147,6 @@ class AddProductDialog(tk.Toplevel):
         try:
             cat_name = self.cat_combo.get()
             category_id = self._categories.get(cat_name)
-
             self.product_model.add(
                 self.name_var.get().strip(),
                 self.barcode_var.get().strip() or None,
@@ -156,8 +155,8 @@ class AddProductDialog(tk.Toplevel):
                 category_id,
             )
             messagebox.showinfo("Success", "Product added successfully!", parent=self)
-            if self.on_save:
-                self.on_save()
+            if self.on_save_callback:
+                self.on_save_callback()
             return True
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save product:\n{e}", parent=self)

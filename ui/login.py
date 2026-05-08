@@ -1,53 +1,79 @@
-import os
 import tkinter as tk
 from tkinter import ttk
-import pygubu
-
 
 # Hardcoded credentials – replace with DB auth later
 VALID_USERNAME = "admin"
 VALID_PASSWORD = "admin"
 
-UI_DIR = os.path.join(os.path.dirname(__file__), "xml")
-
 
 class LoginWindow:
-    """Login screen loaded from XML via pygubu."""
+    """Login screen – pure tkinter."""
 
     def __init__(self, on_success):
-        """
-        on_success: callback invoked (with no args) after successful login.
-        """
         self.on_success = on_success
 
         self.root = tk.Tk()
         self.root.title("POS System - Login")
-        self.root.geometry("500x450")
+        self.root.geometry("750x750")
         self.root.resizable(False, False)
 
         style = ttk.Style()
         style.theme_use("clam")
 
-        # Build UI from XML
-        self.builder = pygubu.Builder()
-        self.builder.add_from_file(os.path.join(UI_DIR, "login.ui"))
-        self.main_frame = self.builder.get_object("login_frame", self.root)
+        self._build_ui()
+        self._center_window()
 
-        # Get widget references
-        self.username_entry = self.builder.get_object("username_entry")
-        self.password_entry = self.builder.get_object("password_entry")
-        self.error_label = self.builder.get_object("error_label")
+    def _build_ui(self):
+        # Outer frame for vertical centering
+        outer = ttk.Frame(self.root, padding=40)
+        outer.pack(fill="both", expand=True)
 
-        # Connect callbacks
-        self.builder.connect_callbacks(self)
+        spacer_top = ttk.Frame(outer)
+        spacer_top.pack(expand=True, fill="both")
+
+        # Login card
+        card = ttk.LabelFrame(outer, text="Login", padding=30)
+        card.pack(padx=100, pady=10)
+
+        ttk.Label(card, text="POS System", font=("Arial", 22, "bold"), anchor="center").pack(
+            fill="x", pady=(0, 20)
+        )
+        ttk.Label(card, text="Sign in to continue", anchor="center").pack(
+            fill="x", pady=(0, 20)
+        )
+
+        # Username
+        ttk.Label(card, text="Username", anchor="w").pack(fill="x", pady=(5, 2))
+        self.username_entry = ttk.Entry(card, width=30)
+        self.username_entry.pack(fill="x", pady=(0, 10))
+
+        # Password
+        ttk.Label(card, text="Password", anchor="w").pack(fill="x", pady=(5, 2))
+        self.password_entry = ttk.Entry(card, width=30, show="\u2022")
+        self.password_entry.pack(fill="x", pady=(0, 5))
+
+        # Error label
+        self.error_var = tk.StringVar(value=" ")
+        ttk.Label(card, textvariable=self.error_var, foreground="red", anchor="center").pack(
+            fill="x", pady=5
+        )
+
+        # Login button
+        ttk.Button(card, text="Login", command=self._on_login).pack(
+            fill="x", pady=(10, 5), ipady=5
+        )
+
+        # Footer
+        ttk.Label(card, text="\u00a9 2026 POS System", anchor="center", foreground="gray").pack(
+            fill="x", pady=(15, 0)
+        )
+
+        spacer_bottom = ttk.Frame(outer)
+        spacer_bottom.pack(expand=True, fill="both")
 
         # Bind Enter key
-        self.root.bind("<Return>", lambda e: self.on_login())
-
-        # Focus username field
+        self.root.bind("<Return>", lambda e: self._on_login())
         self.username_entry.focus_set()
-
-        self._center_window()
 
     def _center_window(self):
         self.root.update_idletasks()
@@ -57,20 +83,20 @@ class LoginWindow:
         y = (self.root.winfo_screenheight() // 2) - (h // 2)
         self.root.geometry(f"+{x}+{y}")
 
-    def on_login(self):
+    def _on_login(self):
         username = self.username_entry.get().strip()
         password = self.password_entry.get().strip()
 
         if not username or not password:
-            self.error_label.configure(text="Please enter username and password")
+            self.error_var.set("Please enter username and password")
             return
 
         if username == VALID_USERNAME and password == VALID_PASSWORD:
-            self.error_label.configure(text="")
+            self.error_var.set("")
             self.root.destroy()
             self.on_success()
         else:
-            self.error_label.configure(text="Invalid username or password")
+            self.error_var.set("Invalid username or password")
             self.password_entry.delete(0, "end")
 
     def run(self):

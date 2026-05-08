@@ -12,7 +12,9 @@ class SalesFrame(ttk.Frame):
         super().__init__(parent)
         self.db = db
         self.sale_model = SaleModel(db)
+
         self._build_ui()
+        self._load()
 
     def _build_ui(self):
         self.columnconfigure(0, weight=1)
@@ -34,31 +36,25 @@ class SalesFrame(ttk.Frame):
         # ── Sales table ──────────────────────────────────────────
         cols = ("id", "total", "payment", "date")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=18)
-        for c in cols:
-            self.tree.heading(c, text=c.capitalize())
-        self.tree.column("id", width=60, anchor="center")
-        self.tree.column("total", width=100, anchor="e")
-        self.tree.column("payment", width=100, anchor="center")
-        self.tree.column("date", width=180)
+        for col, heading, width, anchor in [
+            ("id", "Id", 60, "center"),
+            ("total", "Total", 100, "e"),
+            ("payment", "Payment", 100, "center"),
+            ("date", "Date", 200, "w"),
+        ]:
+            self.tree.heading(col, text=heading)
+            self.tree.column(col, width=width, minwidth=40, anchor=anchor)
         self.tree.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
-
-        self._load()
 
     def _load(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
         try:
             for s in self.sale_model.get_all():
-                self.tree.insert(
-                    "",
-                    "end",
-                    values=(
-                        s["id"],
-                        f'{s["total"]:.2f}',
-                        s["payment_method"],
-                        str(s["created_at"]),
-                    ),
-                )
+                self.tree.insert("", "end", values=(
+                    s["id"], f'{s["total"]:.2f}',
+                    s["payment_method"], str(s["created_at"]),
+                ))
             summary = self.sale_model.get_daily_summary(str(date.today()))
             if summary:
                 self.summary_var.set(

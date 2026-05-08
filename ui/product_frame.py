@@ -7,14 +7,19 @@ from ui.add_product_dialog import AddProductDialog
 
 
 class ProductFrame(ttk.Frame):
-    """Product management screen – add, edit, delete products."""
+    """Product management screen."""
 
     def __init__(self, parent, db):
         super().__init__(parent)
         self.db = db
         self.product_model = ProductModel(db)
         self.category_model = CategoryModel(db)
+        self.entries = {}
+        self._categories = {}
+
         self._build_ui()
+        self._load_categories()
+        self._load_products()
 
     def _build_ui(self):
         self.columnconfigure(1, weight=1)
@@ -25,8 +30,6 @@ class ProductFrame(ttk.Frame):
         form.grid(row=0, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
         labels = ["Name", "Barcode", "Price", "Stock", "Category"]
-        self.entries = {}
-
         for i, lbl in enumerate(labels):
             ttk.Label(form, text=lbl + ":").grid(row=0, column=i * 2, padx=5, pady=5)
             if lbl == "Category":
@@ -40,9 +43,9 @@ class ProductFrame(ttk.Frame):
 
         btn_frame = ttk.Frame(form)
         btn_frame.grid(row=1, column=0, columnspan=10, pady=5)
-        ttk.Button(
-            btn_frame, text="+ New Product", command=self._open_add_dialog
-        ).pack(side="left", padx=5)
+        ttk.Button(btn_frame, text="+ New Product", command=self._open_add_dialog).pack(
+            side="left", padx=5
+        )
         ttk.Button(btn_frame, text="Add", command=self._add).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Update", command=self._update).pack(
             side="left", padx=5
@@ -57,62 +60,23 @@ class ProductFrame(ttk.Frame):
         # ── Table ─────────────────────────────────────────────────
         cols = ("id", "name", "barcode", "price", "stock", "category")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=18)
-        for c in cols:
-            self.tree.heading(c, text=c.capitalize())
-        self.tree.column("id", width=40, anchor="center")
-        self.tree.column("name", width=180)
-        self.tree.column("barcode", width=120)
-        self.tree.column("price", width=80, anchor="e")
-        self.tree.column("stock", width=60, anchor="center")
-        self.tree.column("category", width=120)
+        for col, heading, width, anchor in [
+            ("id", "Id", 50, "center"),
+            ("name", "Name", 200, "w"),
+            ("barcode", "Barcode", 120, "w"),
+            ("price", "Price", 90, "e"),
+            ("stock", "Stock", 70, "center"),
+            ("category", "Category", 120, "w"),
+        ]:
+            self.tree.heading(col, text=heading)
+            self.tree.column(col, width=width, minwidth=40, anchor=anchor)
         self.tree.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
 
-        self._load_categories()
-        self._load_products()
+    # ── Actions ───────────────────────────────────────────────
 
-    def _load_categories(self):
-        try:
-            cats = self.category_model.get_all()
-            self._categories = {c["name"]: c["id"] for c in cats}
-            self.cat_combo["values"] = list(self._categories.keys())
-        except Exception:
-            self._categories = {}
-
-    def _load_products(self):
-        for row in self.tree.get_children():
-            self.tree.delete(row)
-        try:
-            for p in self.product_model.get_all():
-                self.tree.insert(
-                    "",
-                    "end",
-                    values=(
-                        p["id"],
-                        p["name"],
-                        p["barcode"] or "",
-                        f'{p["price"]:.2f}',
-                        p["stock"],
-                        p.get("category_name") or "",
-                    ),
-                )
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def _on_select(self, _event):
-        selected = self.tree.focus()
-        if not selected:
-            return
-        vals = self.tree.item(selected, "values")
-        self.entries["name"].set(vals[1])
-        self.entries["barcode"].set(vals[2])
-        self.entries["price"].set(vals[3])
-        self.entries["stock"].set(vals[4])
-        self.cat_combo.set(vals[5])
-
-    def _get_category_id(self):
-        name = self.cat_combo.get()
-        return self._categories.get(name)
+    def _open_add_dialog(self):
+        AddProductDialog(self.winfo_toplevel(), self.db, on_save=self._load_products)
 
     def _add(self):
         try:
@@ -165,5 +129,40 @@ class ProductFrame(ttk.Frame):
             var.set("")
         self.cat_combo.set("")
 
-    def _open_add_dialog(self):
-        AddProductDialog(self.winfo_toplevel(), self.db, on_save=self._load_products)
+    # ── Helpers ───────────────────────────────────────────────
+
+    def _on_select(self, _event):
+        selected = self.tree.focus()
+        if not selected:
+            return
+        vals = self.tree.item(selected, "values")
+        self.entries["name"].set(vals[1])
+        self.entries["barcode"].set(vals[2])
+        self.entries["price"].set(vals[3])
+        self.entries["stock"].set(vals[4])
+        self.cat_combo.set(vals[5])
+
+    def _get_category_id(self):
+        name = self.cat_combo.get()
+        return self._categories.get(name)
+
+    def _load_categories(self):
+        try:
+            cats = self.category_model.get_all()
+            self._categories = {c["name"]: c["id"] for c in cats}
+            self.cat_combo["values"] = list(self._categories.keys())
+        except Exception:
+            self._categories = {}
+
+    def _load_products(self):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+        try:
+            for p in self.product_model.get_all():
+                self.tree.insert("", "end", values=(
+                    p["id"], p["name"], p["barcode"] or "",
+                    f'{p["price"]:.2f}', p["stock"],
+                    p.get("category_name") or "",
+                ))
+        except Exception as e:
+            messagebox.showerror("Error", str(e))

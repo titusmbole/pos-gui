@@ -13,11 +13,10 @@ class POSFrame(ttk.Frame):
         self.db = db
         self.product_model = ProductModel(db)
         self.sale_model = SaleModel(db)
-        self.cart = []  # list of dicts: product_id, name, quantity, unit_price, subtotal
+        self.cart = []
 
         self._build_ui()
-
-    # ── UI Construction ───────────────────────────────────────────
+        self._load_products()
 
     def _build_ui(self):
         self.columnconfigure(0, weight=1)
@@ -45,12 +44,14 @@ class POSFrame(ttk.Frame):
         self.product_tree = ttk.Treeview(
             prod_frame, columns=cols, show="headings", height=15
         )
-        for c in cols:
-            self.product_tree.heading(c, text=c.capitalize())
-        self.product_tree.column("id", width=50, minwidth=40, anchor="center")
-        self.product_tree.column("name", width=250, minwidth=150, stretch=True)
-        self.product_tree.column("price", width=100, minwidth=70, anchor="e")
-        self.product_tree.column("stock", width=80, minwidth=50, anchor="center")
+        for col, heading, width, anchor in [
+            ("id", "Id", 50, "center"),
+            ("name", "Name", 250, "w"),
+            ("price", "Price", 100, "e"),
+            ("stock", "Stock", 80, "center"),
+        ]:
+            self.product_tree.heading(col, text=heading)
+            self.product_tree.column(col, width=width, minwidth=40, anchor=anchor)
         self.product_tree.pack(fill="both", expand=True, padx=5, pady=5)
 
         ttk.Button(prod_frame, text="Add to Cart", command=self._add_to_cart).pack(
@@ -65,12 +66,14 @@ class POSFrame(ttk.Frame):
         self.cart_tree = ttk.Treeview(
             cart_frame, columns=cart_cols, show="headings", height=15
         )
-        for c in cart_cols:
-            self.cart_tree.heading(c, text=c.capitalize())
-        self.cart_tree.column("name", width=200, minwidth=120, stretch=True)
-        self.cart_tree.column("qty", width=60, minwidth=40, anchor="center")
-        self.cart_tree.column("price", width=100, minwidth=60, anchor="e")
-        self.cart_tree.column("subtotal", width=100, minwidth=60, anchor="e")
+        for col, heading, width, anchor in [
+            ("name", "Name", 200, "w"),
+            ("qty", "Qty", 60, "center"),
+            ("price", "Price", 100, "e"),
+            ("subtotal", "Subtotal", 100, "e"),
+        ]:
+            self.cart_tree.heading(col, text=heading)
+            self.cart_tree.column(col, width=width, minwidth=40, anchor=anchor)
         self.cart_tree.pack(fill="both", expand=True, padx=5, pady=5)
 
         btn_row = ttk.Frame(cart_frame)
@@ -99,24 +102,16 @@ class POSFrame(ttk.Frame):
             checkout_frame, text="Card", variable=self.payment_var, value="card"
         ).pack(side="left", padx=5)
 
-        ttk.Button(
-            checkout_frame,
-            text="Checkout",
-            command=self._checkout,
-            style="Accent.TButton",
-        ).pack(side="right", padx=20)
-
-        # Load initial products
-        self._load_products()
+        ttk.Button(checkout_frame, text="Checkout", command=self._checkout).pack(
+            side="right", padx=20
+        )
 
     # ── Actions ───────────────────────────────────────────────────
 
     def _load_products(self):
-        for row in self.product_tree.get_children():
-            self.product_tree.delete(row)
+        self._clear_tree(self.product_tree)
         try:
-            products = self.product_model.get_all()
-            for p in products:
+            for p in self.product_model.get_all():
                 self.product_tree.insert(
                     "", "end", values=(p["id"], p["name"], f'{p["price"]:.2f}', p["stock"])
                 )
@@ -125,8 +120,7 @@ class POSFrame(ttk.Frame):
 
     def _search_product(self):
         keyword = self.search_var.get().strip()
-        for row in self.product_tree.get_children():
-            self.product_tree.delete(row)
+        self._clear_tree(self.product_tree)
         try:
             products = (
                 self.product_model.search(keyword)
@@ -150,7 +144,6 @@ class POSFrame(ttk.Frame):
         name = vals[1]
         price = float(vals[2])
 
-        # Check if already in cart
         for item in self.cart:
             if item["product_id"] == product_id:
                 item["quantity"] += 1
@@ -158,15 +151,13 @@ class POSFrame(ttk.Frame):
                 self._refresh_cart()
                 return
 
-        self.cart.append(
-            {
-                "product_id": product_id,
-                "name": name,
-                "quantity": 1,
-                "unit_price": price,
-                "subtotal": price,
-            }
-        )
+        self.cart.append({
+            "product_id": product_id,
+            "name": name,
+            "quantity": 1,
+            "unit_price": price,
+            "subtotal": price,
+        })
         self._refresh_cart()
 
     def _remove_from_cart(self):
@@ -182,20 +173,13 @@ class POSFrame(ttk.Frame):
         self._refresh_cart()
 
     def _refresh_cart(self):
-        for row in self.cart_tree.get_children():
-            self.cart_tree.delete(row)
+        self._clear_tree(self.cart_tree)
         total = 0.0
         for item in self.cart:
-            self.cart_tree.insert(
-                "",
-                "end",
-                values=(
-                    item["name"],
-                    item["quantity"],
-                    f'{item["unit_price"]:.2f}',
-                    f'{item["subtotal"]:.2f}',
-                ),
-            )
+            self.cart_tree.insert("", "end", values=(
+                item["name"], item["quantity"],
+                f'{item["unit_price"]:.2f}', f'{item["subtotal"]:.2f}',
+            ))
             total += item["subtotal"]
         self.total_var.set(f"Total: ${total:.2f}")
 
@@ -203,20 +187,22 @@ class POSFrame(ttk.Frame):
         if not self.cart:
             messagebox.showwarning("Empty Cart", "Add products to the cart first.")
             return
-
         total = sum(i["subtotal"] for i in self.cart)
         if not messagebox.askyesno(
             "Confirm", f"Complete sale for ${total:.2f} ({self.payment_var.get()})?"
         ):
             return
-
         try:
             self.sale_model.create_sale(total, self.payment_var.get(), self.cart)
-            # Deduct stock
             for item in self.cart:
                 self.product_model.update_stock(item["product_id"], item["quantity"])
-            messagebox.showinfo("Success", f"Sale #{total:.2f} completed!")
+            messagebox.showinfo("Success", f"Sale ${total:.2f} completed!")
             self._clear_cart()
             self._load_products()
         except Exception as e:
             messagebox.showerror("Error", f"Checkout failed:\n{e}")
+
+    @staticmethod
+    def _clear_tree(tree):
+        for row in tree.get_children():
+            tree.delete(row)

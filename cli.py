@@ -3,7 +3,89 @@
 
 import argparse
 import sys
+import os
+import signal
 import logging
+import subprocess
+import time
+
+
+def _run_with_reload(args):
+    """Watch .py and .ui files, restart the app on changes."""
+    try:
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler
+    except ImportError:
+        print("Install watchdog for --reload: pip install watchdog")
+        sys.exit(1)
+
+    logger = logging.getLogger("pos.reload")
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
+
+    project_dir = os.path.dirname(os.path.abspath(__file__))
+    process = None
+
+    def start_process():
+        nonlocal process
+        cmd = [sys.executable, "-u", __file__, "start"]
+        if args.debug:
+            cmd.append("--debug")
+        env = os.environ.copy()
+        env["POS_NO_RELOAD"] = "1"  # prevent child from also reloading
+        process = subprocess.Popen(cmd, env=env)
+        logger.info(f"Started POS (pid {process.pid})")
+
+    def kill_process():
+        nonlocal process
+        if process and process.poll() is None:
+            logger.info("Stopping POS...")
+            process.terminate()
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            process = None
+
+    class ReloadHandler(FileSystemEventHandler):
+        def __init__(self):
+            self._last_reload = 0
+
+        def on_modified(self, event):
+            if event.is_directory:
+                return
+            path = event.src_path
+            if not (path.endswith(".py") or path.endswith(".ui")):
+                return
+            # Debounce: ignore events within 1 second
+            now = time.time()
+            if now - self._last_reload < 1:
+                return
+            self._last_reload = now
+            logger.info(f"Change detected: {os.path.relpath(path, project_dir)}")
+            kill_process()
+            start_process()
+
+    handler = ReloadHandler()
+    observer = Observer()
+    observer.schedule(handler, project_dir, recursive=True)
+    observer.start()
+    logger.info(f"Watching {project_dir} for .py and .ui changes (auto-reload)")
+
+    start_process()
+    try:
+        while True:
+            if process and process.poll() is not None:
+                logger.info("POS exited. Waiting for file changes to restart...")
+                process = None
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        logger.info("Shutting down reload watcher...")
+        kill_process()
+        observer.stop()
+    observer.join()
 
 
 def cmd_start(args):
@@ -19,6 +101,11 @@ def cmd_start(args):
             level=logging.INFO,
             format="%(asctime)s [%(levelname)s] %(message)s",
         )
+
+    # If --reload and not already a child process, run the watcher
+    if getattr(args, 'reload', False) and not os.environ.get("POS_NO_RELOAD"):
+        _run_with_reload(args)
+        return
 
     logger = logging.getLogger("pos")
     logger.info("Starting POS application...")
@@ -80,6 +167,14 @@ def cmd_start(args):
         logger.info("Shutting down POS...")
         db.disconnect()
         root.destroy()
+
+    # Fast Ctrl+C: signal handler sets a flag checked by the event loop
+    def _signal_handler(sig, frame):
+        logger.info("Ctrl+C received")
+        on_close()
+
+    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
 
     root.protocol("WM_DELETE_WINDOW", on_close)
     logger.info("UI ready")
@@ -154,6 +249,10 @@ def main():
     start_parser = subparsers.add_parser("start", help="Start the POS application")
     start_parser.add_argument(
         "--debug", action="store_true", help="Run in debug mode with verbose logging"
+    )
+    start_parser.add_argument(
+        "--reload", action="store_true",
+        help="Auto-reload on .py/.ui file changes (requires watchdog)",
     )
     start_parser.set_defaults(func=cmd_start)
 

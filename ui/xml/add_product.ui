@@ -1,0 +1,228 @@
+<?xml version='1.0' encoding='utf-8'?>
+<interface version="1.2">
+  <object class="ttk.Frame" id="add_product_main">
+    <property name="padding">20</property>
+    <layout manager="pack">
+      <property name="expand">true</property>
+      <property name="fill">both</property>
+    </layout>
+
+    <!-- Title -->
+    <object class="ttk.Label" id="title_label">
+      <property name="text">New Product</property>
+      <property name="font">Arial 16 bold</property>
+      <property name="anchor">center</property>
+      <layout manager="pack">
+        <property name="fill">x</property>
+        <property name="pady">0 15</property>
+      </layout>
+    </object>
+
+    <!-- Fields container -->
+    <object class="ttk.Frame" id="fields_frame">
+      <layout manager="pack">
+        <property name="fill">x</property>
+      </layout>
+
+      <!-- Product Name -->
+      <object class="ttk.Frame" id="row_name">
+        <layout manager="pack">
+          <property name="fill">x</property>
+          <property name="pady">4</property>
+        </layout>
+        <object class="ttk.Label" id="lbl_name">
+          <property name="text">Product Name *</property>
+          <property name="width">18</property>
+          <property name="anchor">w</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+          </layout>
+        </object>
+        <object class="ttk.Entry" id="entry_name">
+          <property name="width">25</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+            <property name="fill">x</property>
+            <property name="expand">true</property>
+          </layout>
+        </object>
+      </object>
+
+      <!-- Barcode -->
+      <object class="ttk.Frame" id="row_barcode">
+        <layout manager="pack">
+          <property name="fill">x</property>
+          <property name="pady">4</property>
+        </layout>
+        <object class="ttk.Label" id="lbl_barcode">
+          <property name="text">Barcode</property>
+          <property name="width">18</property>
+          <property name="anchor">w</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+          </layout>
+        </object>
+        <object class="ttk.Entry" id="entry_barcode">
+          <property name="width">25</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+            <property name="fill">x</property>
+            <property name="expand">true</property>
+          </layout>
+        </object>
+      </object>
+
+      <!-- Selling Price -->
+      <object class="ttk.Frame" id="row_price">
+        <layout manager="pack">
+          <property name="fill">x</property>
+          <property name="pady">4</property>
+        </layout>
+        <object class="ttk.Label" id="lbl_price">
+          <property name="text">Selling Price *</property>
+          <property name="width">18</property>
+          <property name="anchor">w</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+          </layout>
+        </object>
+        <object class="ttk.Entry" id="entry_price">
+          <property name="width">25</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+            <property name="fill">x</property>
+            <property name="expand">true</property>
+          </layout>
+        </object>
+      </object>
+
+      <!-- Cost Price -->
+      <object class="ttk.Frame" id="row_cost">
+        <layout manager="pack">
+          <property name="fill">x</property>
+          <property name="pady">4</property>
+        </layout>
+        <object class="ttk.Label" id="lbl_cost">
+          <property name="text">Cost Price</property>
+          <property name="width">18</property>
+          <property name="anchor">w</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+          </layout>
+        </object>
+        <object class="ttk.Entry" id="entry_cost">
+          <property name="width">25</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+            <property name="fill">x</property>
+            <property name="expand">true</property>
+          </layout>
+        </object>
+      </object>
+
+      <!-- Stock Quantity -->
+      <object class="ttk.Frame" id="row_stock">
+        <layout manager="pack">
+          <property name="fill">x</property>
+          <property name="pady">4</property>
+        </layout>
+        <object class="ttk.Label" id="lbl_stock">
+          <property name="text">Stock Quantity *</property>
+          <property name="width">18</property>
+          <property name="anchor">w</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+          </layout>
+        </object>
+        <object class="ttk.Entry" id="entry_stock">
+          <property name="width">25</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+            <property name="fill">x</property>
+            <property name="expand">true</property>
+          </layout>
+        </object>
+      </object>
+
+      <!-- Category -->
+      <object class="ttk.Frame" id="row_category">
+        <layout manager="pack">
+          <property name="fill">x</property>
+          <property name="pady">4</property>
+        </layout>
+        <object class="ttk.Label" id="lbl_category">
+          <property name="text">Category</property>
+          <property name="width">18</property>
+          <property name="anchor">w</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+          </layout>
+        </object>
+        <object class="ttk.Combobox" id="cat_combo">
+          <property name="width">22</property>
+          <property name="state">readonly</property>
+          <layout manager="pack">
+            <property name="side">left</property>
+            <property name="fill">x</property>
+            <property name="expand">true</property>
+          </layout>
+        </object>
+      </object>
+
+      <!-- Description label -->
+      <object class="ttk.Label" id="lbl_desc">
+        <property name="text">Description</property>
+        <property name="anchor">w</property>
+        <layout manager="pack">
+          <property name="fill">x</property>
+          <property name="pady">8 2</property>
+        </layout>
+      </object>
+
+      <!-- Description text -->
+      <object class="tk.Text" id="desc_text">
+        <property name="height">4</property>
+        <property name="width">40</property>
+        <property name="wrap">word</property>
+        <layout manager="pack">
+          <property name="fill">x</property>
+        </layout>
+      </object>
+    </object>
+
+    <!-- Buttons -->
+    <object class="ttk.Frame" id="btn_frame">
+      <layout manager="pack">
+        <property name="pady">20</property>
+      </layout>
+
+      <object class="ttk.Button" id="btn_save">
+        <property name="text">Save Product</property>
+        <property name="command">on_save</property>
+        <layout manager="pack">
+          <property name="side">left</property>
+          <property name="padx">10</property>
+        </layout>
+      </object>
+
+      <object class="ttk.Button" id="btn_save_another">
+        <property name="text">Save &amp; Add Another</property>
+        <property name="command">on_save_and_clear</property>
+        <layout manager="pack">
+          <property name="side">left</property>
+          <property name="padx">10</property>
+        </layout>
+      </object>
+
+      <object class="ttk.Button" id="btn_cancel">
+        <property name="text">Cancel</property>
+        <property name="command">on_cancel</property>
+        <layout manager="pack">
+          <property name="side">left</property>
+          <property name="padx">10</property>
+        </layout>
+      </object>
+    </object>
+
+  </object>
+</interface>

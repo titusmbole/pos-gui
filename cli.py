@@ -110,12 +110,26 @@ def cmd_start(args):
     logger = logging.getLogger("pos")
     logger.info("Starting POS application...")
 
+    # ── Load config file if provided ─────────────────────────
+    from config.settings import load_config, APP
+
+    if args.config:
+        try:
+            load_config(args.config)
+            logger.info(f"Loaded config from {args.config}")
+        except Exception as e:
+            logger.error(f"Failed to load config: {e}")
+            sys.exit(1)
+
+    # Re-import APP after potential config reload
+    from config.settings import APP as app_cfg
+
     # ── Connect to database ───────────────────────────────────
     from database.connection import Database
-    from config.settings import DATABASE, APP
+    from config import settings
 
-    logger.debug(f"Database config: host={DATABASE['host']}, port={DATABASE['port']}, db={DATABASE['database']}")
-    logger.debug(f"App config: {APP}")
+    logger.debug(f"Database config: host={settings.DATABASE['host']}, db={settings.DATABASE['database']}")
+    logger.debug(f"App config: {app_cfg}")
 
     db = Database()
     if not db.connect():
@@ -153,7 +167,6 @@ def cmd_start(args):
     # ── Build main UI ─────────────────────────────────────────
     import tkinter as tk
     from tkinter import ttk
-    from config.settings import APP as app_cfg
     from ui.dashboard_frame import DashboardFrame
     from ui.pos_frame import POSFrame
     from ui.product_frame import ProductFrame
@@ -199,6 +212,15 @@ def cmd_db(args):
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
     logger = logging.getLogger("pos.db")
+
+    if args.config:
+        from config.settings import load_config
+        try:
+            load_config(args.config)
+            logger.info(f"Loaded config from {args.config}")
+        except Exception as e:
+            logger.error(f"Failed to load config: {e}")
+            sys.exit(1)
 
     from database.connection import Database
 
@@ -259,6 +281,10 @@ def main():
     # pos start
     start_parser = subparsers.add_parser("start", help="Start the POS application")
     start_parser.add_argument(
+        "--config", "-c", type=str, default=None,
+        help="Path to JSON config file (database, app settings)",
+    )
+    start_parser.add_argument(
         "--debug", action="store_true", help="Run in debug mode with verbose logging"
     )
     start_parser.add_argument(
@@ -269,6 +295,10 @@ def main():
 
     # pos db
     db_parser = subparsers.add_parser("db", help="Database management")
+    db_parser.add_argument(
+        "--config", "-c", type=str, default=None,
+        help="Path to JSON config file",
+    )
     db_group = db_parser.add_mutually_exclusive_group()
     db_group.add_argument(
         "--sync", action="store_true", help="Create tables if they don't exist"

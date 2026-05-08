@@ -1,0 +1,15 @@
+   {
+        "appName": "ImaraPOS",
+        "appVersion": "1.0.0",
+        "appDescription": "A Point of Sale system for small businesses.",
+        "appAuthor": "Titus Kilunda",
+        "appLicense": "MIT",
+        "appRepository": "https://github.com/imaradesk/imarapos",
+        "database": {
+            "host": "localhost",
+            "port": 3306,
+            "username": "root",
+            "password": "",
+            "name": "imarapos_db"
+        }
+    }

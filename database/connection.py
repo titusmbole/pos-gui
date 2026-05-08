@@ -1,6 +1,6 @@
 import mysql.connector
 from mysql.connector import Error
-from config.settings import DATABASE
+from config import settings
 
 
 class Database:
@@ -12,12 +12,14 @@ class Database:
     def connect(self):
         """Establish connection to MySQL."""
         try:
+            db_cfg = settings.DATABASE
             self.connection = mysql.connector.connect(
-                host=DATABASE["host"],
-                port=DATABASE["port"],
-                user=DATABASE["user"],
-                password=DATABASE["password"],
-                database=DATABASE["database"],
+                host=db_cfg["host"],
+                port=db_cfg["port"],
+                user=db_cfg["user"],
+                password=db_cfg["password"],
+                database=db_cfg["database"],
+                use_pure=True,
             )
             if self.connection.is_connected():
                 print("Connected to MySQL database")

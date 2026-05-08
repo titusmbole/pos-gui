@@ -129,8 +129,8 @@ class POSFrame(ttk.Frame):
             row=2, column=0, pady=5
         )
 
-        # ── Totals & checkout ─────────────────────────────────────
-        checkout_frame = ttk.Frame(self)
+        # ── Totals & payment buttons ──────────────────────────────
+        checkout_frame = tk.Frame(self, bg="#f5f5f5")
         checkout_frame.grid(row=2, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
         self.total_var = tk.StringVar(value="Total: KES 0")
@@ -138,17 +138,33 @@ class POSFrame(ttk.Frame):
             checkout_frame, textvariable=self.total_var, font=("Arial", 16, "bold")
         ).pack(side="left", padx=20)
 
-        self.payment_var = tk.StringVar(value="cash")
-        ttk.Radiobutton(
-            checkout_frame, text="Cash", variable=self.payment_var, value="cash"
-        ).pack(side="left", padx=5)
-        ttk.Radiobutton(
-            checkout_frame, text="Card", variable=self.payment_var, value="card"
-        ).pack(side="left", padx=5)
+        # Payment buttons (right-aligned)
+        btn_container = tk.Frame(checkout_frame, bg="#f5f5f5")
+        btn_container.pack(side="right", padx=10)
 
-        ttk.Button(checkout_frame, text="Checkout", command=self._checkout).pack(
-            side="right", padx=20
+        cash_btn = tk.Button(
+            btn_container, text="💵  Cash", bg="#27ae60", fg="#ffffff",
+            font=("Segoe UI", 12, "bold"), relief="flat", padx=20, pady=8,
+            cursor="hand2", activebackground="#219a52", activeforeground="#fff",
+            command=self._pay_cash,
         )
+        cash_btn.pack(side="left", padx=5)
+
+        mpesa_btn = tk.Button(
+            btn_container, text="📱  Mpesa", bg="#4caf50", fg="#ffffff",
+            font=("Segoe UI", 12, "bold"), relief="flat", padx=20, pady=8,
+            cursor="hand2", activebackground="#3d8b40", activeforeground="#fff",
+            command=self._pay_mpesa,
+        )
+        mpesa_btn.pack(side="left", padx=5)
+
+        card_btn = tk.Button(
+            btn_container, text="💳  Card", bg="#2196f3", fg="#ffffff",
+            font=("Segoe UI", 12, "bold"), relief="flat", padx=20, pady=8,
+            cursor="hand2", activebackground="#1976d2", activeforeground="#fff",
+            command=self._pay_card,
+        )
+        card_btn.pack(side="left", padx=5)
 
     # ── Product Grid ──────────────────────────────────────────────
 
@@ -409,21 +425,234 @@ class POSFrame(ttk.Frame):
 
         self.total_var.set(f"Total: KES {total:,.0f}")
 
-    def _checkout(self):
-        if not self.cart:
-            messagebox.showwarning("Empty Cart", "Add products to the cart first.")
-            return
-        total = sum(i["subtotal"] for i in self.cart)
-        if not messagebox.askyesno(
-            "Confirm", f"Complete sale for KES {total:,.0f} ({self.payment_var.get()})?"
-        ):
-            return
+    def _get_cart_total(self):
+        return sum(i["subtotal"] for i in self.cart)
+
+    def _complete_sale(self, payment_method, extra_info=""):
+        """Finalise the sale after payment is confirmed."""
+        total = self._get_cart_total()
         try:
-            self.sale_model.create_sale(total, self.payment_var.get(), self.cart)
+            self.sale_model.create_sale(total, payment_method, self.cart)
             for item in self.cart:
                 self.product_model.update_stock(item["product_id"], item["quantity"])
-            messagebox.showinfo("Success", f"Sale KES {total:,.0f} completed!")
+            msg = f"Sale KES {total:,.0f} completed!\nPayment: {payment_method.upper()}"
+            if extra_info:
+                msg += f"\n{extra_info}"
+            messagebox.showinfo("Success", msg)
             self._clear_cart()
             self._load_products()
         except Exception as e:
             messagebox.showerror("Error", f"Checkout failed:\n{e}")
+
+    # ── Cash Payment ──────────────────────────────────────────────
+
+    def _pay_cash(self):
+        if not self.cart:
+            messagebox.showwarning("Empty Cart", "Add products to the cart first.")
+            return
+        total = self._get_cart_total()
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Cash Payment")
+        dlg.transient(self.winfo_toplevel())
+        dlg.grab_set()
+        dlg.resizable(False, False)
+        dlg.configure(bg="#ffffff")
+
+        # Centre on screen
+        w, h = 380, 220
+        x = self.winfo_toplevel().winfo_x() + (self.winfo_toplevel().winfo_width() - w) // 2
+        y = self.winfo_toplevel().winfo_y() + (self.winfo_toplevel().winfo_height() - h) // 2
+        dlg.geometry(f"{w}x{h}+{x}+{y}")
+
+        tk.Label(
+            dlg, text="Confirm Cash Payment", bg="#ffffff", fg="#222",
+            font=("Segoe UI", 14, "bold"),
+        ).pack(pady=(20, 10))
+
+        tk.Label(
+            dlg, text=f"Total Amount", bg="#ffffff", fg="#888",
+            font=("Segoe UI", 10),
+        ).pack()
+        tk.Label(
+            dlg, text=f"KES {total:,.0f}", bg="#ffffff", fg="#27ae60",
+            font=("Segoe UI", 22, "bold"),
+        ).pack(pady=(0, 20))
+
+        btn_row = tk.Frame(dlg, bg="#ffffff")
+        btn_row.pack(pady=10)
+
+        tk.Button(
+            btn_row, text="Cancel", bg="#e0e0e0", fg="#333",
+            font=("Segoe UI", 11), relief="flat", padx=25, pady=6,
+            command=dlg.destroy,
+        ).pack(side="left", padx=10)
+
+        tk.Button(
+            btn_row, text="Confirm Payment", bg="#27ae60", fg="#fff",
+            font=("Segoe UI", 11, "bold"), relief="flat", padx=25, pady=6,
+            command=lambda: (dlg.destroy(), self._complete_sale("cash")),
+        ).pack(side="left", padx=10)
+
+    # ── Mpesa Payment ─────────────────────────────────────────────
+
+    def _pay_mpesa(self):
+        if not self.cart:
+            messagebox.showwarning("Empty Cart", "Add products to the cart first.")
+            return
+        total = self._get_cart_total()
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Mpesa Payment")
+        dlg.transient(self.winfo_toplevel())
+        dlg.grab_set()
+        dlg.resizable(False, False)
+        dlg.configure(bg="#ffffff")
+
+        w, h = 500, 300
+        x = self.winfo_toplevel().winfo_x() + (self.winfo_toplevel().winfo_width() - w) // 2
+        y = self.winfo_toplevel().winfo_y() + (self.winfo_toplevel().winfo_height() - h) // 2
+        dlg.geometry(f"{w}x{h}+{x}+{y}")
+
+   
+        tk.Label(
+            dlg, text=f"Amount: KES {total:,.0f}", bg="#ffffff", fg="#4caf50",
+            font=("Segoe UI", 13, "bold"),
+        ).pack(pady=(0, 15))
+
+        tk.Label(
+            dlg, text="Phone Number", bg="#ffffff", fg="#555",
+            font=("Segoe UI", 10),
+        ).pack(anchor="w", padx=40)
+
+        phone_var = tk.StringVar()
+        phone_entry = tk.Entry(
+            dlg, textvariable=phone_var, font=("Segoe UI", 13),
+            relief="solid", bd=1, width=25,
+        )
+        phone_entry.pack(padx=40, pady=(2, 5), ipady=6)
+        phone_entry.insert(0, "07")
+        phone_entry.focus_set()
+
+        error_label = tk.Label(dlg, text="", bg="#ffffff", fg="#e74c3c", font=("Segoe UI", 9))
+        error_label.pack()
+
+        def submit():
+            phone = phone_var.get().strip()
+            if len(phone) < 10 or not phone.isdigit():
+                error_label.config(text="Enter a valid phone number (e.g. 0712345678)")
+                return
+            dlg.destroy()
+            self._complete_sale("mpesa", f"Phone: {phone}")
+
+        btn_row = tk.Frame(dlg, bg="#ffffff")
+        btn_row.pack(pady=10)
+
+        tk.Button(
+            btn_row, text="Cancel", bg="#e0e0e0", fg="#333",
+            font=("Segoe UI", 11), relief="flat", padx=25, pady=6,
+            command=dlg.destroy,
+        ).pack(side="left", padx=10)
+
+        tk.Button(
+            btn_row, text="Send STK Push", bg="#4caf50", fg="#fff",
+            font=("Segoe UI", 11, "bold"), relief="flat", padx=25, pady=6,
+            command=submit,
+        ).pack(side="left", padx=10)
+
+        phone_entry.bind("<Return>", lambda e: submit())
+
+    # ── Card Payment ──────────────────────────────────────────────
+
+    def _pay_card(self):
+        if not self.cart:
+            messagebox.showwarning("Empty Cart", "Add products to the cart first.")
+            return
+        total = self._get_cart_total()
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Card Payment")
+        dlg.transient(self.winfo_toplevel())
+        dlg.grab_set()
+        dlg.resizable(False, False)
+        dlg.configure(bg="#ffffff")
+
+        w, h = 400, 360
+        x = self.winfo_toplevel().winfo_x() + (self.winfo_toplevel().winfo_width() - w) // 2
+        y = self.winfo_toplevel().winfo_y() + (self.winfo_toplevel().winfo_height() - h) // 2
+        dlg.geometry(f"{w}x{h}+{x}+{y}")
+
+        tk.Label(
+            dlg, text="Card Payment", bg="#ffffff", fg="#222",
+            font=("Segoe UI", 14, "bold"),
+        ).pack(pady=(20, 5))
+
+        tk.Label(
+            dlg, text=f"Amount: KES {total:,.0f}", bg="#ffffff", fg="#2196f3",
+            font=("Segoe UI", 13, "bold"),
+        ).pack(pady=(0, 15))
+
+        tk.Label(
+            dlg, text="Select Bank", bg="#ffffff", fg="#555",
+            font=("Segoe UI", 10),
+        ).pack(anchor="w", padx=40)
+
+        banks = [
+            "KCB Bank", "Equity Bank", "Co-operative Bank",
+            "ABSA Bank", "Standard Chartered", "NCBA Bank",
+            "I&M Bank", "DTB Bank", "Stanbic Bank", "Family Bank",
+        ]
+
+        bank_var = tk.StringVar()
+        bank_list = tk.Frame(dlg, bg="#ffffff")
+        bank_list.pack(padx=40, pady=(5, 5), fill="x")
+
+        # Scrollable bank list
+        bank_canvas = tk.Canvas(bank_list, bg="#ffffff", highlightthickness=0, height=150)
+        bank_sb = ttk.Scrollbar(bank_list, orient="vertical", command=bank_canvas.yview)
+        bank_canvas.configure(yscrollcommand=bank_sb.set)
+        bank_canvas.pack(side="left", fill="both", expand=True)
+        bank_sb.pack(side="right", fill="y")
+
+        bank_inner = tk.Frame(bank_canvas, bg="#ffffff")
+        bank_canvas.create_window((0, 0), window=bank_inner, anchor="nw")
+        bank_inner.bind("<Configure>", lambda e: bank_canvas.configure(
+            scrollregion=bank_canvas.bbox("all")
+        ))
+
+        radio_buttons = []
+        for bank in banks:
+            rb = tk.Radiobutton(
+                bank_inner, text=bank, variable=bank_var, value=bank,
+                bg="#ffffff", fg="#333", font=("Segoe UI", 11),
+                anchor="w", activebackground="#e3f2fd", selectcolor="#ffffff",
+                indicatoron=True, padx=10, pady=3,
+            )
+            rb.pack(fill="x")
+            radio_buttons.append(rb)
+
+        error_label = tk.Label(dlg, text="", bg="#ffffff", fg="#e74c3c", font=("Segoe UI", 9))
+        error_label.pack()
+
+        def submit():
+            selected = bank_var.get()
+            if not selected:
+                error_label.config(text="Please select a bank")
+                return
+            dlg.destroy()
+            self._complete_sale("card", f"Bank: {selected}")
+
+        btn_row = tk.Frame(dlg, bg="#ffffff")
+        btn_row.pack(pady=10)
+
+        tk.Button(
+            btn_row, text="Cancel", bg="#e0e0e0", fg="#333",
+            font=("Segoe UI", 11), relief="flat", padx=25, pady=6,
+            command=dlg.destroy,
+        ).pack(side="left", padx=10)
+
+        tk.Button(
+            btn_row, text="Pay with Card", bg="#2196f3", fg="#fff",
+            font=("Segoe UI", 11, "bold"), relief="flat", padx=25, pady=6,
+            command=submit,
+        ).pack(side="left", padx=10)

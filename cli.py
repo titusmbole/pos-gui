@@ -128,22 +128,27 @@ def cmd_start(args):
 
     # ── Show login screen ─────────────────────────────────────
     from ui.login import LoginWindow
+    from models.session import session
 
-    authenticated = False
+    # Try to restore existing session
+    if session.restore(db):
+        logger.info(f"Session restored for user: {session.username}")
+    else:
+        authenticated = False
 
-    def on_login_success():
-        nonlocal authenticated
-        authenticated = True
-        logger.info("Login successful")
+        def on_login_success():
+            nonlocal authenticated
+            authenticated = True
+            logger.info("Login successful")
 
-    logger.info("Showing login screen...")
-    login = LoginWindow(db=db, on_success=on_login_success)
-    login.run()
+        logger.info("Showing login screen...")
+        login = LoginWindow(db=db, on_success=on_login_success)
+        login.run()
 
-    if not authenticated:
-        logger.info("Login cancelled. Exiting.")
-        db.disconnect()
-        sys.exit(0)
+        if not authenticated:
+            logger.info("Login cancelled. Exiting.")
+            db.disconnect()
+            sys.exit(0)
 
     # ── Build main UI ─────────────────────────────────────────
     import tkinter as tk
@@ -153,6 +158,7 @@ def cmd_start(args):
     from ui.pos_frame import POSFrame
     from ui.product_frame import ProductFrame
     from ui.sales_frame import SalesFrame
+    from ui.user_frame import UserFrame
 
     root = tk.Tk()
     root.title(app_cfg["title"])
@@ -166,6 +172,7 @@ def cmd_start(args):
     notebook.add(POSFrame(notebook, db), text="  POS  ")
     notebook.add(ProductFrame(notebook, db), text="  Products  ")
     notebook.add(SalesFrame(notebook, db), text="  Sales  ")
+    notebook.add(UserFrame(notebook, db), text="  Users  ")
 
     def on_close():
         logger.info("Shutting down POS...")

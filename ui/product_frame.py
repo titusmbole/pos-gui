@@ -4,6 +4,7 @@ from tkinter import ttk, messagebox
 from models.product import ProductModel
 from models.category import CategoryModel
 from ui.add_product_dialog import AddProductDialog
+from ui.table import Table
 
 
 class ProductFrame(ttk.Frame):
@@ -22,12 +23,12 @@ class ProductFrame(ttk.Frame):
         self._load_products()
 
     def _build_ui(self):
-        self.columnconfigure(1, weight=1)
+        self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
         # ── Form ──────────────────────────────────────────────────
         form = ttk.LabelFrame(self, text="Product Details")
-        form.grid(row=0, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
+        form.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
 
         labels = ["Name", "Barcode", "Price", "Stock", "Category"]
         for i, lbl in enumerate(labels):
@@ -58,20 +59,15 @@ class ProductFrame(ttk.Frame):
         )
 
         # ── Table ─────────────────────────────────────────────────
-        cols = ("id", "name", "barcode", "price", "stock", "category")
-        self.tree = ttk.Treeview(self, columns=cols, show="headings", height=18)
-        for col, heading, width, anchor in [
-            ("id", "Id", 50, "center"),
-            ("name", "Name", 200, "w"),
-            ("barcode", "Barcode", 120, "w"),
-            ("price", "Price", 90, "e"),
-            ("stock", "Stock", 70, "center"),
-            ("category", "Category", 120, "w"),
-        ]:
-            self.tree.heading(col, text=heading)
-            self.tree.column(col, width=width, minwidth=40, anchor=anchor)
-        self.tree.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
-        self.tree.bind("<<TreeviewSelect>>", self._on_select)
+        self.table = Table(self, columns=[
+            {"key": "id", "label": "Id", "width": 60, "anchor": "center", "stretch": False},
+            {"key": "name", "label": "Name", "width": 250, "anchor": "w", "stretch": True},
+            {"key": "barcode", "label": "Barcode", "width": 150, "anchor": "w", "stretch": True},
+            {"key": "price", "label": "Price", "width": 120, "anchor": "e", "stretch": False},
+            {"key": "stock", "label": "Stock", "width": 80, "anchor": "center", "stretch": False},
+            {"key": "category", "label": "Category", "width": 150, "anchor": "w", "stretch": True},
+        ], on_select=self._on_select)
+        self.table.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
     # ── Actions ───────────────────────────────────────────────
 
@@ -93,11 +89,11 @@ class ProductFrame(ttk.Frame):
             messagebox.showerror("Error", str(e))
 
     def _update(self):
-        selected = self.tree.focus()
-        if not selected:
+        row = self.table.get_selected()
+        if not row:
             messagebox.showwarning("Select", "Select a product first.")
             return
-        product_id = int(self.tree.item(selected, "values")[0])
+        product_id = row["id"]
         try:
             self.product_model.update(
                 product_id,
@@ -112,10 +108,10 @@ class ProductFrame(ttk.Frame):
             messagebox.showerror("Error", str(e))
 
     def _delete(self):
-        selected = self.tree.focus()
-        if not selected:
+        row = self.table.get_selected()
+        if not row:
             return
-        product_id = int(self.tree.item(selected, "values")[0])
+        product_id = row["id"]
         if messagebox.askyesno("Confirm", "Delete this product?"):
             try:
                 self.product_model.delete(product_id)
@@ -131,16 +127,12 @@ class ProductFrame(ttk.Frame):
 
     # ── Helpers ───────────────────────────────────────────────
 
-    def _on_select(self, _event):
-        selected = self.tree.focus()
-        if not selected:
-            return
-        vals = self.tree.item(selected, "values")
-        self.entries["name"].set(vals[1])
-        self.entries["barcode"].set(vals[2])
-        self.entries["price"].set(vals[3])
-        self.entries["stock"].set(vals[4])
-        self.cat_combo.set(vals[5])
+    def _on_select(self, row):
+        self.entries["name"].set(row.get("name", ""))
+        self.entries["barcode"].set(row.get("barcode", ""))
+        self.entries["price"].set(row.get("price", ""))
+        self.entries["stock"].set(row.get("stock", ""))
+        self.cat_combo.set(row.get("category", ""))
 
     def _get_category_id(self):
         name = self.cat_combo.get()
@@ -155,14 +147,19 @@ class ProductFrame(ttk.Frame):
             self._categories = {}
 
     def _load_products(self):
-        for row in self.tree.get_children():
-            self.tree.delete(row)
         try:
-            for p in self.product_model.get_all():
-                self.tree.insert("", "end", values=(
-                    p["id"], p["name"], p["barcode"] or "",
-                    f'{p["price"]:.2f}', p["stock"],
-                    p.get("category_name") or "",
-                ))
+            products = self.product_model.get_all()
+            data = [
+                {
+                    "id": p["id"],
+                    "name": p["name"],
+                    "barcode": p["barcode"] or "",
+                    "price": f'{p["price"]:.2f}',
+                    "stock": p["stock"],
+                    "category": p.get("category_name") or "",
+                }
+                for p in products
+            ]
+            self.table.set_data(data)
         except Exception as e:
             messagebox.showerror("Error", str(e))

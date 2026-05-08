@@ -5,6 +5,7 @@ from datetime import date
 from models.session import session
 from models.product import ProductModel
 from models.sale import SaleModel
+from ui.table import Table
 
 
 class DashboardFrame(ttk.Frame):
@@ -80,20 +81,16 @@ class DashboardFrame(ttk.Frame):
         # ── Recent Sales ──────────────────────────────────────────
         recent_frame = ttk.LabelFrame(self, text="Recent Sales (Today)", padding=10)
         recent_frame.grid(row=2, column=1, sticky="nsew", padx=10, pady=10)
+        recent_frame.columnconfigure(0, weight=1)
+        recent_frame.rowconfigure(0, weight=1)
 
-        cols = ("id", "total", "payment", "time")
-        self.recent_tree = ttk.Treeview(
-            recent_frame, columns=cols, show="headings", height=10
-        )
-        for col, heading, width, anchor in [
-            ("id", "#", 50, "center"),
-            ("total", "Total", 100, "e"),
-            ("payment", "Payment", 100, "center"),
-            ("time", "Time", 150, "w"),
-        ]:
-            self.recent_tree.heading(col, text=heading)
-            self.recent_tree.column(col, width=width, anchor=anchor)
-        self.recent_tree.pack(fill="both", expand=True)
+        self.recent_table = Table(recent_frame, columns=[
+            {"key": "id", "label": "#", "width": 60, "anchor": "center", "stretch": False},
+            {"key": "total", "label": "Total", "width": 120, "anchor": "e", "stretch": False},
+            {"key": "payment", "label": "Payment", "width": 120, "anchor": "center", "stretch": True},
+            {"key": "time", "label": "Time", "width": 200, "anchor": "w", "stretch": True},
+        ])
+        self.recent_table.grid(row=0, column=0, sticky="nsew")
 
     def _load_summaries(self):
         try:
@@ -111,14 +108,17 @@ class DashboardFrame(ttk.Frame):
             self.cards["low_stock"].configure(text=str(low_stock))
 
             # Recent sales
-            for row in self.recent_tree.get_children():
-                self.recent_tree.delete(row)
             sales = self.sale_model.get_all()
-            for s in sales[:10]:
-                self.recent_tree.insert("", "end", values=(
-                    s["id"], f'${s["total"]:.2f}',
-                    s["payment_method"], str(s["created_at"]),
-                ))
+            data = [
+                {
+                    "id": s["id"],
+                    "total": f'${s["total"]:.2f}',
+                    "payment": s["payment_method"],
+                    "time": str(s["created_at"]),
+                }
+                for s in sales[:10]
+            ]
+            self.recent_table.set_data(data)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load dashboard:\n{e}")
 

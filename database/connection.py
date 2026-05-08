@@ -88,6 +88,7 @@ class Database:
                 price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
                 stock INT NOT NULL DEFAULT 0,
                 category_id INT,
+                image VARCHAR(500),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (category_id) REFERENCES categories(id)
                     ON DELETE SET NULL
@@ -130,8 +131,18 @@ class Database:
         ]
         for sql in tables:
             self.execute_query(sql)
+        self._migrate()
         self._seed_admin()
         print("Database tables initialized")
+
+    def _migrate(self):
+        """Run schema migrations for existing databases."""
+        cols = self.fetch_all("SHOW COLUMNS FROM products")
+        col_names = {c["Field"] for c in cols}
+        if "image" not in col_names:
+            self.execute_query(
+                "ALTER TABLE products ADD COLUMN image VARCHAR(500) DEFAULT NULL"
+            )
 
     def _seed_admin(self):
         """Create default admin user if no users exist."""

@@ -36,19 +36,26 @@ class ProductModel:
             "SELECT * FROM products WHERE id = %s", (product_id,)
         )
 
-    def add(self, name, barcode, price, stock, category_id):
+    def add(self, name, barcode, price, stock, category_id, image=None):
         return self.db.execute_query(
-            "INSERT INTO products (name, barcode, price, stock, category_id) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (name, barcode, price, stock, category_id),
+            "INSERT INTO products (name, barcode, price, stock, category_id, image) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (name, barcode, price, stock, category_id, image),
         )
 
-    def update(self, product_id, name, barcode, price, stock, category_id):
-        self.db.execute_query(
-            "UPDATE products SET name=%s, barcode=%s, price=%s, stock=%s, "
-            "category_id=%s WHERE id=%s",
-            (name, barcode, price, stock, category_id, product_id),
-        )
+    def update(self, product_id, name, barcode, price, stock, category_id, image=None):
+        if image is not None:
+            self.db.execute_query(
+                "UPDATE products SET name=%s, barcode=%s, price=%s, stock=%s, "
+                "category_id=%s, image=%s WHERE id=%s",
+                (name, barcode, price, stock, category_id, image, product_id),
+            )
+        else:
+            self.db.execute_query(
+                "UPDATE products SET name=%s, barcode=%s, price=%s, stock=%s, "
+                "category_id=%s WHERE id=%s",
+                (name, barcode, price, stock, category_id, product_id),
+            )
 
     def update_stock(self, product_id, quantity_sold):
         self.db.execute_query(

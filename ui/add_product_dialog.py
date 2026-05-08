@@ -1,8 +1,14 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
+from PIL import Image, ImageTk
+import os
+import shutil
+import uuid
 
 from models.product import ProductModel
 from models.category import CategoryModel
+
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 
 
 class AddProductDialog(tk.Toplevel):
@@ -16,7 +22,7 @@ class AddProductDialog(tk.Toplevel):
         self.on_save_callback = on_save
 
         self.title("Add New Product")
-        self.geometry("800x720")
+        self.geometry("800x700")
         self.resizable(True, True)
         self.minsize(480, 550)
         self.grab_set()
@@ -43,9 +49,31 @@ class AddProductDialog(tk.Toplevel):
             pady=(0, 15)
         )
 
+        # ── Top section: Image + Fields side by side ──────────────
+        top = ttk.Frame(main)
+        top.pack(fill="x")
+
+        # ── Image Upload (clickable rectangle with preview) ──────
+        self._image_path = None
+        self._photo = None
+
+        img_container = ttk.Frame(top)
+        img_container.pack(side="left", padx=(0, 15))
+
+        self._img_canvas = tk.Canvas(
+            img_container, width=150, height=150,
+            bg="#f0f0f0", highlightthickness=1, highlightbackground="#ccc", cursor="hand2"
+        )
+        self._img_canvas.pack()
+        self._img_canvas.bind("<Button-1>", lambda e: self._browse_image())
+        self._draw_placeholder()
+
+        clear_btn = ttk.Button(img_container, text="Remove", command=self._clear_image)
+        clear_btn.pack(pady=(5, 0))
+
         # ── Fields ────────────────────────────────────────────────
-        fields_frame = ttk.Frame(main)
-        fields_frame.pack(fill="x")
+        fields_frame = ttk.Frame(top)
+        fields_frame.pack(side="left", fill="x", expand=True)
 
         self.name_var = tk.StringVar()
         self.barcode_var = tk.StringVar()
@@ -77,10 +105,12 @@ class AddProductDialog(tk.Toplevel):
         self.cat_combo.pack(side="left", fill="x", expand=True)
 
         # ── Description ──────────────────────────────────────────
-        ttk.Label(fields_frame, text="Description", anchor="w").pack(
-            fill="x", pady=(8, 2)
+        desc_frame = ttk.Frame(main)
+        desc_frame.pack(fill="x", pady=(8, 0))
+        ttk.Label(desc_frame, text="Description", anchor="w").pack(
+            fill="x", pady=(0, 2)
         )
-        self.desc_text = tk.Text(fields_frame, height=4, width=40, wrap="word")
+        self.desc_text = tk.Text(desc_frame, height=4, width=40, wrap="word")
         self.desc_text.pack(fill="x")
 
         # ── Buttons ───────────────────────────────────────────────
@@ -147,12 +177,14 @@ class AddProductDialog(tk.Toplevel):
         try:
             cat_name = self.cat_combo.get()
             category_id = self._categories.get(cat_name)
+            image_filename = self._save_image()
             self.product_model.add(
                 self.name_var.get().strip(),
                 self.barcode_var.get().strip() or None,
                 float(self.price_var.get().strip()),
                 int(self.stock_var.get().strip()),
                 category_id,
+                image_filename,
             )
             messagebox.showinfo("Success", "Product added successfully!", parent=self)
             if self.on_save_callback:
@@ -170,3 +202,53 @@ class AddProductDialog(tk.Toplevel):
         self.stock_var.set("0")
         self.cat_combo.set("")
         self.desc_text.delete("1.0", "end")
+        self._clear_image()
+
+    def _draw_placeholder(self):
+        self._img_canvas.delete("all")
+        self._img_canvas.create_text(
+            75, 65, text="Click to\nupload image",
+            fill="#999", font=("Segoe UI", 10), justify="center"
+        )
+        self._img_canvas.create_text(
+            75, 100, text="+", fill="#aaa", font=("Segoe UI", 24, "bold")
+        )
+
+    def _show_preview(self, path):
+        try:
+            img = Image.open(path)
+            img.thumbnail((148, 148))
+            self._photo = ImageTk.PhotoImage(img)
+            self._img_canvas.delete("all")
+            self._img_canvas.create_image(75, 75, image=self._photo, anchor="center")
+        except Exception:
+            self._draw_placeholder()
+
+    def _browse_image(self):
+        path = filedialog.askopenfilename(
+            parent=self,
+            title="Select Product Image",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("All files", "*.*"),
+            ],
+        )
+        if path:
+            self._image_path = path
+            self._show_preview(path)
+
+    def _clear_image(self):
+        self._image_path = None
+        self._photo = None
+        self._draw_placeholder()
+
+    def _save_image(self):
+        """Copy selected image to uploads dir, return filename or None."""
+        if not self._image_path:
+            return None
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+        ext = os.path.splitext(self._image_path)[1].lower()
+        filename = f"{uuid.uuid4().hex}{ext}"
+        dest = os.path.join(UPLOADS_DIR, filename)
+        shutil.copy2(self._image_path, dest)
+        return filename

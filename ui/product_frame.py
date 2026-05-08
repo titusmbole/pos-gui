@@ -57,6 +57,9 @@ class ProductFrame(ttk.Frame):
         ttk.Button(btn_frame, text="Clear", command=self._clear_form).pack(
             side="left", padx=5
         )
+        ttk.Button(btn_frame, text="Refresh", command=self._load_products).pack(
+            side="left", padx=5
+        )
 
         # ── Table ─────────────────────────────────────────────────
         self.table = Table(self, columns=[

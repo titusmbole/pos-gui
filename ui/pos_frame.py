@@ -10,7 +10,6 @@ except ImportError:
 
 from models.product import ProductModel
 from models.sale import SaleModel
-from ui.table import Table
 
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 COLS_PER_ROW = 4
@@ -85,30 +84,56 @@ class POSFrame(ttk.Frame):
         cart_frame = ttk.LabelFrame(self, text="Cart")
         cart_frame.grid(row=1, column=1, sticky="nsew", padx=5, pady=5)
         cart_frame.columnconfigure(0, weight=1)
-        cart_frame.rowconfigure(0, weight=1)
+        cart_frame.rowconfigure(1, weight=1)
 
-        self.cart_table = Table(cart_frame, columns=[
-            {"key": "name", "label": "Name", "width": 180, "anchor": "w", "stretch": True},
-            {"key": "qty", "label": "Qty", "width": 50, "anchor": "center", "stretch": False},
-            {"key": "price", "label": "Price", "width": 90, "anchor": "e", "stretch": False},
-            {"key": "subtotal", "label": "Subtotal", "width": 90, "anchor": "e", "stretch": False},
-        ])
-        self.cart_table.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        # Cart header
+        cart_header = tk.Frame(cart_frame, bg="#f5f5f5")
+        cart_header.grid(row=0, column=0, sticky="ew", padx=5, pady=(5, 0))
+        tk.Label(
+            cart_header, text="Item", bg="#f5f5f5", fg="#555",
+            font=("Segoe UI", 10, "bold"), anchor="w",
+        ).pack(side="left", expand=True, fill="x")
+        tk.Label(
+            cart_header, text="Qty", bg="#f5f5f5", fg="#555",
+            font=("Segoe UI", 10, "bold"), width=10, anchor="center",
+        ).pack(side="left")
+        tk.Label(
+            cart_header, text="Total", bg="#f5f5f5", fg="#555",
+            font=("Segoe UI", 10, "bold"), width=10, anchor="e",
+        ).pack(side="left")
+        # spacer for delete button column
+        tk.Label(cart_header, text="", bg="#f5f5f5", width=3).pack(side="left")
 
-        btn_row = ttk.Frame(cart_frame)
-        btn_row.grid(row=1, column=0, pady=5)
-        ttk.Button(btn_row, text="Remove", command=self._remove_from_cart).pack(
-            side="left", padx=5
+        # Scrollable cart body
+        self._cart_canvas = tk.Canvas(cart_frame, bg="#ffffff", highlightthickness=0)
+        cart_scrollbar = ttk.Scrollbar(
+            cart_frame, orient="vertical", command=self._cart_canvas.yview
         )
-        ttk.Button(btn_row, text="Clear Cart", command=self._clear_cart).pack(
-            side="left", padx=5
+        self._cart_canvas.configure(yscrollcommand=cart_scrollbar.set)
+        self._cart_canvas.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        cart_scrollbar.grid(row=1, column=1, sticky="ns", pady=5)
+
+        self._cart_inner = tk.Frame(self._cart_canvas, bg="#ffffff")
+        self._cart_window = self._cart_canvas.create_window(
+            (0, 0), window=self._cart_inner, anchor="nw"
+        )
+        self._cart_inner.bind("<Configure>", lambda e: self._cart_canvas.configure(
+            scrollregion=self._cart_canvas.bbox("all")
+        ))
+        self._cart_canvas.bind("<Configure>", lambda e: self._cart_canvas.itemconfig(
+            self._cart_window, width=e.width
+        ))
+
+        # Clear cart button
+        ttk.Button(cart_frame, text="Clear Cart", command=self._clear_cart).grid(
+            row=2, column=0, pady=5
         )
 
         # ── Totals & checkout ─────────────────────────────────────
         checkout_frame = ttk.Frame(self)
         checkout_frame.grid(row=2, column=0, columnspan=2, sticky="ew", padx=5, pady=5)
 
-        self.total_var = tk.StringVar(value="Total: $0.00")
+        self.total_var = tk.StringVar(value="Total: KES 0")
         ttk.Label(
             checkout_frame, textvariable=self.total_var, font=("Arial", 16, "bold")
         ).pack(side="left", padx=20)
@@ -137,7 +162,7 @@ class POSFrame(ttk.Frame):
             self._grid_canvas.yview_scroll(1, "units")
 
     def _render_grid(self, products):
-        """Render product cards in a grid layout."""
+        """Render product cards in a grid layout matching reference design."""
         for w in self._grid_inner.winfo_children():
             w.destroy()
         self._card_widgets = []
@@ -145,73 +170,88 @@ class POSFrame(ttk.Frame):
         self._selected_product = None
 
         for i in range(COLS_PER_ROW):
-            self._grid_inner.columnconfigure(i, weight=1)
+            self._grid_inner.columnconfigure(i, weight=1, uniform="card")
 
         for idx, p in enumerate(products):
             row = idx // COLS_PER_ROW
             col = idx % COLS_PER_ROW
 
             card = tk.Frame(
-                self._grid_inner, bg="#ffffff", relief="solid", bd=1,
-                padx=8, pady=8, cursor="hand2"
+                self._grid_inner, bg="#ffffff", relief="flat", bd=0,
+                cursor="hand2", highlightthickness=1, highlightbackground="#e0e0e0",
             )
-            card.grid(row=row, column=col, padx=6, pady=6, sticky="nsew")
+            card.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
 
-            # Image
-            img_label = tk.Label(card, bg="#f0f0f0", width=80, height=80)
-            img_label.pack(pady=(0, 5))
-            photo = self._load_product_image(p.get("image"), 72)
+            # ── Image area (light gray background, full card width) ──
+            img_frame = tk.Frame(card, bg="#f8f8f8", height=120)
+            img_frame.pack(fill="x", padx=1, pady=(1, 0))
+            img_frame.pack_propagate(False)
+
+            img_label = tk.Label(img_frame, bg="#f8f8f8")
+            img_label.pack(expand=True)
+            photo = self._load_product_image(p.get("image"), 110)
             if photo:
-                img_label.configure(image=photo, width=80, height=80)
+                img_label.configure(image=photo)
                 self._image_cache.append(photo)
             else:
-                img_label.configure(text="No Image", fg="#aaa", font=("Segoe UI", 8))
+                img_label.configure(
+                    text="No Image", fg="#bbb", font=("Segoe UI", 9),
+                )
 
-            # Name
+            # ── Info area ────────────────────────────────────────────
+            info_frame = tk.Frame(card, bg="#ffffff", padx=10, pady=6)
+            info_frame.pack(fill="x", anchor="w")
+
+            # Name (truncated, left-aligned)
+            name_text = p["name"]
+            if len(name_text) > 22:
+                name_text = name_text[:20] + "..."
             tk.Label(
-                card, text=p["name"], bg="#ffffff", fg="#212529",
-                font=("Segoe UI", 10, "bold"), wraplength=130, justify="center"
-            ).pack()
+                info_frame, text=name_text, bg="#ffffff", fg="#333333",
+                font=("Segoe UI", 10, "bold"), anchor="w",
+            ).pack(fill="x")
 
-            # Price
+            # Price (teal/green, left-aligned)
             tk.Label(
-                card, text=f'${p["price"]:.2f}', bg="#ffffff", fg="#2c3e50",
-                font=("Segoe UI", 12, "bold")
-            ).pack(pady=(2, 0))
+                info_frame, text=f'KES {p["price"]:,.0f}',
+                bg="#ffffff", fg="#1a9e78",
+                font=("Segoe UI", 11, "bold"), anchor="w",
+            ).pack(fill="x", pady=(2, 4))
 
-            # Stock
+            # Stock dot + text (left-aligned)
             stock = p["stock"]
             stock_color = "#27ae60" if stock > 5 else ("#e67e22" if stock > 0 else "#e74c3c")
+            stock_row = tk.Frame(info_frame, bg="#ffffff")
+            stock_row.pack(fill="x")
             tk.Label(
-                card, text=f"Stock: {stock}", bg="#ffffff", fg=stock_color,
-                font=("Segoe UI", 9)
-            ).pack()
+                stock_row, text="●", bg="#ffffff", fg=stock_color,
+                font=("Segoe UI", 10),
+            ).pack(side="left")
+            tk.Label(
+                stock_row, text=f"  {stock} in stock", bg="#ffffff", fg="#888888",
+                font=("Segoe UI", 9),
+            ).pack(side="left")
 
-            # Bind click
+            # ── Bind click to all widgets in card ────────────────────
             product_data = p
-            for widget in [card] + card.winfo_children():
+            all_widgets = [card, img_frame, img_label, info_frame, stock_row]
+            all_widgets += info_frame.winfo_children()
+            all_widgets += stock_row.winfo_children()
+            for widget in all_widgets:
                 widget.bind("<Button-1>", lambda e, pd=product_data, c=card: self._select_card(pd, c))
 
             self._card_widgets.append(card)
 
     def _select_card(self, product_data, card):
         """Select a product card and add to cart."""
-        # Deselect previous
+        # Reset all cards
         for c in self._card_widgets:
-            c.configure(bg="#ffffff", highlightbackground="#ffffff")
-            for child in c.winfo_children():
-                if isinstance(child, tk.Label) and child.cget("bg") != "#f0f0f0":
-                    child.configure(bg="#ffffff")
+            c.configure(highlightbackground="#e0e0e0", highlightthickness=1)
 
-        # Highlight selected
-        card.configure(bg="#d4e6f1")
-        for child in card.winfo_children():
-            if isinstance(child, tk.Label) and child.cget("bg") != "#f0f0f0":
-                child.configure(bg="#d4e6f1")
+        # Highlight selected card
+        card.configure(highlightbackground="#1a9e78", highlightthickness=2)
 
         self._selected_product = product_data
-
-        # Auto-add to cart on click
         self._add_product_to_cart(product_data)
 
     def _load_product_image(self, filename, size):
@@ -253,6 +293,7 @@ class POSFrame(ttk.Frame):
         product_id = p["id"]
         name = p["name"]
         price = float(p["price"])
+        category = p.get("category_name") or ""
 
         for item in self.cart:
             if item["product_id"] == product_id:
@@ -264,36 +305,109 @@ class POSFrame(ttk.Frame):
         self.cart.append({
             "product_id": product_id,
             "name": name,
+            "category": category,
             "quantity": 1,
             "unit_price": price,
             "subtotal": price,
         })
         self._refresh_cart()
 
-    def _remove_from_cart(self):
-        idx = self.cart_table.get_selected_index()
-        if idx is None:
-            return
-        self.cart.pop(idx)
-        self._refresh_cart()
+    def _change_qty(self, index, delta):
+        """Adjust quantity for a cart item by delta (+1 or -1)."""
+        if 0 <= index < len(self.cart):
+            item = self.cart[index]
+            new_qty = item["quantity"] + delta
+            if new_qty <= 0:
+                self.cart.pop(index)
+            else:
+                item["quantity"] = new_qty
+                item["subtotal"] = new_qty * item["unit_price"]
+            self._refresh_cart()
+
+    def _remove_item(self, index):
+        """Remove a specific item from the cart."""
+        if 0 <= index < len(self.cart):
+            self.cart.pop(index)
+            self._refresh_cart()
 
     def _clear_cart(self):
         self.cart.clear()
         self._refresh_cart()
 
     def _refresh_cart(self):
+        # Clear existing cart rows
+        for w in self._cart_inner.winfo_children():
+            w.destroy()
+
         total = 0.0
-        data = []
-        for item in self.cart:
-            data.append({
-                "name": item["name"],
-                "qty": item["quantity"],
-                "price": f'{item["unit_price"]:.2f}',
-                "subtotal": f'{item["subtotal"]:.2f}',
-            })
+        for idx, item in enumerate(self.cart):
             total += item["subtotal"]
-        self.cart_table.set_data(data)
-        self.total_var.set(f"Total: ${total:.2f}")
+
+            row_frame = tk.Frame(self._cart_inner, bg="#ffffff")
+            row_frame.pack(fill="x", padx=0, pady=0)
+
+            # Bottom separator line
+            sep = tk.Frame(row_frame, bg="#eeeeee", height=1)
+            sep.pack(side="bottom", fill="x")
+
+            content = tk.Frame(row_frame, bg="#ffffff", pady=8, padx=8)
+            content.pack(fill="x")
+            content.columnconfigure(0, weight=1)
+
+            # ── Left: item name + category ──
+            info_col = tk.Frame(content, bg="#ffffff")
+            info_col.grid(row=0, column=0, sticky="w")
+
+            tk.Label(
+                info_col, text=item["name"], bg="#ffffff", fg="#222222",
+                font=("Segoe UI", 10, "bold"), anchor="w",
+            ).pack(anchor="w")
+            if item["category"]:
+                tk.Label(
+                    info_col, text=item["category"], bg="#ffffff", fg="#aaaaaa",
+                    font=("Segoe UI", 9), anchor="w",
+                ).pack(anchor="w")
+
+            # ── Middle: − qty + buttons ──
+            qty_col = tk.Frame(content, bg="#ffffff")
+            qty_col.grid(row=0, column=1, padx=(10, 10))
+
+            minus_btn = tk.Label(
+                qty_col, text="−", bg="#f0f0f0", fg="#333", width=3,
+                font=("Segoe UI", 11), relief="solid", bd=1, cursor="hand2",
+            )
+            minus_btn.pack(side="left")
+            minus_btn.bind("<Button-1>", lambda e, i=idx: self._change_qty(i, -1))
+
+            qty_label = tk.Label(
+                qty_col, text=str(item["quantity"]), bg="#ffffff", fg="#222",
+                font=("Segoe UI", 11), width=3, anchor="center",
+                relief="solid", bd=1,
+            )
+            qty_label.pack(side="left")
+
+            plus_btn = tk.Label(
+                qty_col, text="+", bg="#f0f0f0", fg="#333", width=3,
+                font=("Segoe UI", 11), relief="solid", bd=1, cursor="hand2",
+            )
+            plus_btn.pack(side="left")
+            plus_btn.bind("<Button-1>", lambda e, i=idx: self._change_qty(i, +1))
+
+            # ── Right: subtotal ──
+            tk.Label(
+                content, text=f'{item["subtotal"]:,.0f}', bg="#ffffff", fg="#222",
+                font=("Segoe UI", 11), anchor="e", width=9,
+            ).grid(row=0, column=2, padx=(5, 0))
+
+            # ── Delete button (trash icon) ──
+            del_btn = tk.Label(
+                content, text="🗑", bg="#ffffff", fg="#cc3333",
+                font=("Segoe UI", 13), cursor="hand2",
+            )
+            del_btn.grid(row=0, column=3, padx=(5, 0))
+            del_btn.bind("<Button-1>", lambda e, i=idx: self._remove_item(i))
+
+        self.total_var.set(f"Total: KES {total:,.0f}")
 
     def _checkout(self):
         if not self.cart:
@@ -301,14 +415,14 @@ class POSFrame(ttk.Frame):
             return
         total = sum(i["subtotal"] for i in self.cart)
         if not messagebox.askyesno(
-            "Confirm", f"Complete sale for ${total:.2f} ({self.payment_var.get()})?"
+            "Confirm", f"Complete sale for KES {total:,.0f} ({self.payment_var.get()})?"
         ):
             return
         try:
             self.sale_model.create_sale(total, self.payment_var.get(), self.cart)
             for item in self.cart:
                 self.product_model.update_stock(item["product_id"], item["quantity"])
-            messagebox.showinfo("Success", f"Sale ${total:.2f} completed!")
+            messagebox.showinfo("Success", f"Sale KES {total:,.0f} completed!")
             self._clear_cart()
             self._load_products()
         except Exception as e:
